@@ -68,7 +68,7 @@ export async function storeEssay(
 ): Promise<void> {
   // Store individual essay
   await put(`essays/${meta.slug}.json`, JSON.stringify({ ...meta, content }), {
-    access: "public",
+    
     addRandomSuffix: false,
   });
 
@@ -78,7 +78,7 @@ export async function storeEssay(
   filtered.push(meta);
   filtered.sort((a, b) => (a.date > b.date ? -1 : 1));
   await put(INDEX_KEY, JSON.stringify(filtered), {
-    access: "public",
+    
     addRandomSuffix: false,
   });
 }
