@@ -69,6 +69,7 @@ export async function storeEssay(
   // Store individual essay
   await put(`essays/${meta.slug}.json`, JSON.stringify({ ...meta, content }), {
     
+    allowOverwrite: true,
     addRandomSuffix: false,
   });
 
@@ -79,6 +80,7 @@ export async function storeEssay(
   filtered.sort((a, b) => (a.date > b.date ? -1 : 1));
   await put(INDEX_KEY, JSON.stringify(filtered), {
     
+    allowOverwrite: true,
     addRandomSuffix: false,
   });
 }
