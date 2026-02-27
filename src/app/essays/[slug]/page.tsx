@@ -1,7 +1,7 @@
 import { getEssay, getAllEssaySlugs } from "@/lib/essays";
 import { notFound } from "next/navigation";
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 export async function generateStaticParams() {
   const slugs = await getAllEssaySlugs();

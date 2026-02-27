@@ -1,6 +1,6 @@
 import { getAllEssays } from "@/lib/essays";
 
-export const revalidate = 60;
+export const revalidate = 0;
 
 export default async function Home() {
   const essays = await getAllEssays();
