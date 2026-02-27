@@ -1,7 +1,9 @@
 import { getAllEssays } from "@/lib/essays";
 
-export default function Home() {
-  const essays = getAllEssays();
+export const revalidate = 60;
+
+export default async function Home() {
+  const essays = await getAllEssays();
   return (
     <div className="pt-10">
       <p className="text-lg mb-12" style={{ fontFamily: "var(--font-serif)", color: "var(--color-text-muted)", lineHeight: "1.8" }}>

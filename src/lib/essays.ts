@@ -1,10 +1,8 @@
-import fs from "fs";
-import path from "path";
-import matter from "gray-matter";
+import { list, put, head } from "@vercel/blob";
 import { remark } from "remark";
 import html from "remark-html";
 
-const essaysDirectory = path.join(process.cwd(), "content/essays");
+const INDEX_KEY = "essays-index.json";
 
 export interface EssayMeta {
   slug: string;
@@ -18,31 +16,69 @@ export interface Essay extends EssayMeta {
   contentHtml: string;
 }
 
-export function getAllEssays(): EssayMeta[] {
-  const fileNames = fs.readdirSync(essaysDirectory);
-  return fileNames
-    .filter((f) => f.endsWith(".md"))
-    .map((fileName) => {
-      const slug = fileName.replace(/\.md$/, "");
-      const fullPath = path.join(essaysDirectory, fileName);
-      const fileContents = fs.readFileSync(fullPath, "utf8");
-      const { data } = matter(fileContents);
-      return { slug, title: data.title, date: data.date, description: data.description, theme: data.theme };
-    })
-    .sort((a, b) => (a.date > b.date ? -1 : 1));
+export async function getAllEssays(): Promise<EssayMeta[]> {
+  try {
+    const { blobs } = await list({ prefix: INDEX_KEY });
+    if (blobs.length === 0) return [];
+    const res = await fetch(blobs[0].url);
+    const essays: EssayMeta[] = await res.json();
+    return essays.sort((a, b) => (a.date > b.date ? -1 : 1));
+  } catch {
+    return [];
+  }
 }
 
-export async function getEssay(slug: string): Promise<Essay> {
-  const fullPath = path.join(essaysDirectory, `${slug}.md`);
-  const fileContents = fs.readFileSync(fullPath, "utf8");
-  const { data, content } = matter(fileContents);
-  const processedContent = await remark().use(html).process(content);
-  return {
-    slug, title: data.title, date: data.date, description: data.description,
-    theme: data.theme, contentHtml: processedContent.toString(),
-  };
+export async function getEssay(slug: string): Promise<Essay | null> {
+  try {
+    const { blobs } = await list({ prefix: `essays/${slug}.json` });
+    if (blobs.length === 0) return null;
+    const res = await fetch(blobs[0].url);
+    const data = await res.json();
+    const processedContent = await remark().use(html).process(data.content);
+    return {
+      slug: data.slug,
+      title: data.title,
+      date: data.date,
+      description: data.description,
+      theme: data.theme,
+      contentHtml: processedContent.toString(),
+    };
+  } catch {
+    return null;
+  }
 }
 
-export function getAllEssaySlugs(): string[] {
-  return fs.readdirSync(essaysDirectory).filter((f) => f.endsWith(".md")).map((f) => f.replace(/\.md$/, ""));
+export async function getAllEssaySlugs(): Promise<string[]> {
+  const essays = await getAllEssays();
+  return essays.map((e) => e.slug);
+}
+
+export function slugify(text: string): string {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, "")
+    .replace(/\s+/g, "-")
+    .replace(/-+/g, "-")
+    .trim();
+}
+
+export async function storeEssay(
+  meta: EssayMeta,
+  content: string
+): Promise<void> {
+  // Store individual essay
+  await put(`essays/${meta.slug}.json`, JSON.stringify({ ...meta, content }), {
+    access: "public",
+    addRandomSuffix: false,
+  });
+
+  // Update index
+  const existing = await getAllEssays();
+  const filtered = existing.filter((e) => e.slug !== meta.slug);
+  filtered.push(meta);
+  filtered.sort((a, b) => (a.date > b.date ? -1 : 1));
+  await put(INDEX_KEY, JSON.stringify(filtered), {
+    access: "public",
+    addRandomSuffix: false,
+  });
 }
