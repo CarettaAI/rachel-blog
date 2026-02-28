@@ -18,6 +18,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "files must be an array" }, { status: 400 });
     }
 
+    // Reject unsafe paths
+    for (const file of files) {
+      if (
+        typeof file.path !== "string" ||
+        file.path.startsWith("/") ||
+        file.path.split("/").some((part) => part === ".." || part === ".")
+      ) {
+        return NextResponse.json({ error: "invalid file path" }, { status: 400 });
+      }
+    }
+
     const updatedAt = new Date().toISOString();
 
     // Store individual files
@@ -35,7 +46,7 @@ export async function POST(req: NextRequest) {
     // Compute backlinks from file content
     const backlinks: Record<string, Backlink[]> = {};
     for (const file of files) {
-      const { data, content } = matter(file.content);
+      const { data, content } = matter(file.content, { engines: {} });
       const slug = file.path;
       const title = (data.title as string) || slug.split("/").pop() || slug;
 
