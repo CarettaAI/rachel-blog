@@ -2,8 +2,13 @@ import { list } from "@vercel/blob";
 import matter from "gray-matter";
 import { remark } from "remark";
 import html from "remark-html";
+import fs from "fs/promises";
+import path from "path";
+import os from "os";
 
 const VAULT_INDEX_KEY = "vault-index.json";
+const isDev = process.env.NODE_ENV === "development";
+const LOCAL_VAULT_DIR = path.join(os.homedir(), "Documents", "rachel-vault");
 
 export interface VaultFile {
   slug: string;
@@ -24,6 +29,10 @@ interface VaultIndex {
 
 async function getVaultIndex(): Promise<VaultIndex | null> {
   try {
+    if (isDev) {
+      const raw = await fs.readFile(path.join(LOCAL_VAULT_DIR, VAULT_INDEX_KEY), "utf-8");
+      return JSON.parse(raw);
+    }
     const { blobs } = await list({ prefix: VAULT_INDEX_KEY });
     if (blobs.length === 0) return null;
     const res = await fetch(blobs[0].url);
@@ -63,10 +72,16 @@ function resolveWikiLinks(htmlContent: string): string {
 export async function getVaultPage(slugParts: string[]): Promise<{ title: string; contentHtml: string } | null> {
   const filePath = slugParts.join("/");
   try {
-    const { blobs } = await list({ prefix: `vault/${filePath}.json` });
-    if (blobs.length === 0) return null;
-    const res = await fetch(blobs[0].url);
-    const data = await res.json();
+    let data: { content: string };
+    if (isDev) {
+      const raw = await fs.readFile(path.join(LOCAL_VAULT_DIR, `vault/${filePath}.json`), "utf-8");
+      data = JSON.parse(raw);
+    } else {
+      const { blobs } = await list({ prefix: `vault/${filePath}.json` });
+      if (blobs.length === 0) return null;
+      const res = await fetch(blobs[0].url);
+      data = await res.json();
+    }
     const { data: frontmatter, content } = matter(data.content);
     const processed = await remark().use(html).process(content);
     return {
