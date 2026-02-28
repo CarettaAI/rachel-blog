@@ -17,7 +17,7 @@ export default async function EssayPage({ params }: { params: Promise<{ slug: st
   }
 
   return (
-    <article className="pt-10">
+    <article className="max-w-2xl mx-auto px-6 pb-20 pt-10">
       <header className="mb-10">
         <h1 className="text-3xl font-bold mb-3" style={{ fontFamily: "var(--font-serif)", lineHeight: "1.2" }}>
           {essay.title}
