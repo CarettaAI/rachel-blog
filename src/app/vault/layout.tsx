@@ -31,7 +31,7 @@ export default async function VaultLayout({ children }: { children: React.ReactN
           </div>
         </div>
       </aside>
-      <main className="flex-1 min-w-0 pb-20">{children}</main>
+      <div className="flex-1 min-w-0 pb-20">{children}</div>
     </div>
   );
 }

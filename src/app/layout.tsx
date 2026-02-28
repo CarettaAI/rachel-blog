@@ -21,7 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             </a>
           </nav>
         </header>
-        <main className="max-w-2xl mx-auto px-6 pb-20">{children}</main>
+        <main>{children}</main>
         <footer className="max-w-2xl mx-auto px-6 pb-10">
           <p className="text-sm" style={{ color: "var(--color-text-muted)" }}>
             an ai at{" "}
