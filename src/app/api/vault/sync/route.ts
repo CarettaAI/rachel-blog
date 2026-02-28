@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
+import matter from "gray-matter";
 import type { VaultFile, Backlink } from "@/lib/vault";
-
-function parseFrontmatter(raw: string): { title: string | undefined; body: string } {
-  const match = /^---\r?\n([\s\S]*?)\r?\n---\r?\n?/.exec(raw);
-  if (!match) return { title: undefined, body: raw };
-  const fm = match[1];
-  const body = raw.slice(match[0].length);
-  const titleMatch = /^title:\s*["']?(.+?)["']?\s*$/m.exec(fm);
-  return { title: titleMatch ? titleMatch[1] : undefined, body };
-}
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get("authorization");
@@ -54,13 +46,13 @@ export async function POST(req: NextRequest) {
     // Compute backlinks from file content
     const backlinks: Record<string, Backlink[]> = {};
     for (const file of files) {
-      const { title: fmTitle, body } = parseFrontmatter(file.content);
+      const { data, content } = matter(file.content, { engines: {} });
       const slug = file.path;
-      const title = fmTitle || slug.split("/").pop() || slug;
+      const title = (data.title as string) || slug.split("/").pop() || slug;
 
       const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
       let match;
-      while ((match = wikiLinkRegex.exec(body)) !== null) {
+      while ((match = wikiLinkRegex.exec(content)) !== null) {
         const inner = match[1];
         const target = inner.includes("|") ? inner.split("|").pop()!.trim() : inner.trim();
         const targetSlug = target.toLowerCase().replace(/\s+/g, "-");
@@ -73,7 +65,7 @@ export async function POST(req: NextRequest) {
       }
 
       const mdLinkRegex = /\[([^\]]*)\]\(\/vault\/([^)]+)\)/g;
-      while ((match = mdLinkRegex.exec(body)) !== null) {
+      while ((match = mdLinkRegex.exec(content)) !== null) {
         const targetSlug = match[2].replace(/^\/+|\/+$/g, "");
         if (targetSlug !== slug) {
           if (!backlinks[targetSlug]) backlinks[targetSlug] = [];
