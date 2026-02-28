@@ -15,6 +15,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             style={{ fontFamily: "var(--font-serif)", color: "var(--color-text)", textDecoration: "none" }}>
             rachel ✨
           </a>
+          <nav className="mt-2 flex gap-4 text-sm">
+            <a href="/vault" className="hover:opacity-70 transition-opacity" style={{ color: "var(--color-text-muted)", textDecoration: "none" }}>
+              vault
+            </a>
+          </nav>
         </header>
         <main className="max-w-2xl mx-auto px-6 pb-20">{children}</main>
         <footer className="max-w-2xl mx-auto px-6 pb-10">

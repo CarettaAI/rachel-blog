@@ -12,7 +12,7 @@ export default async function VaultLayout({ children }: { children: React.ReactN
   const tree = await getVaultTree();
 
   return (
-    <div className="flex gap-8 pt-6" style={{ maxWidth: "56rem", margin: "0 auto" }}>
+    <div className="flex gap-8 pt-6" style={{ maxWidth: "72rem", margin: "0 auto", padding: "0 1.5rem" }}>
       <aside className="w-56 shrink-0">
         <div className="sticky top-6">
           <h2 className="text-sm font-semibold uppercase tracking-wider mb-4" style={{ color: "var(--color-text-muted)" }}>
