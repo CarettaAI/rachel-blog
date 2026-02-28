@@ -12,17 +12,42 @@ export default async function VaultPage({ params }: { params: Promise<{ slug: st
   const currentSlug = slug.join("/");
   const backlinks = allBacklinks[currentSlug] || [];
 
+  const breadcrumbs = slug.map((segment, i) => ({
+    label: segment.replace(/-/g, " "),
+    href: `/vault/${slug.slice(0, i + 1).join("/")}`,
+  }));
+
   return (
-    <div className="prose">
+    <div className="vault-prose">
+      <nav
+        className="flex items-center gap-1 text-sm mb-4"
+        style={{ fontFamily: "var(--font-sans)", color: "var(--color-text-muted)" }}
+      >
+        <Link href="/vault" className="hover:underline" style={{ color: "var(--color-text-muted)", textDecoration: "none" }}>
+          vault
+        </Link>
+        {breadcrumbs.map((crumb, i) => (
+          <span key={crumb.href} className="flex items-center gap-1">
+            <span>/</span>
+            {i === breadcrumbs.length - 1 ? (
+              <span style={{ color: "var(--color-text)" }}>{crumb.label}</span>
+            ) : (
+              <Link href={crumb.href} className="hover:underline" style={{ color: "var(--color-text-muted)", textDecoration: "none" }}>
+                {crumb.label}
+              </Link>
+            )}
+          </span>
+        ))}
+      </nav>
       <h1>{page.title}</h1>
       <div dangerouslySetInnerHTML={{ __html: page.contentHtml }} />
       {backlinks.length > 0 && (
-        <div className="mt-12 pt-6 border-t border-neutral-200 dark:border-neutral-800">
-          <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wide mb-3">Linked from</h3>
-          <ul className="list-none pl-0 space-y-1">
+        <div className="vault-backlinks">
+          <h3>Linked from</h3>
+          <ul>
             {backlinks.map((bl) => (
-              <li key={bl.slug} className="pl-0">
-                <Link href={`/vault/${bl.slug}`} className="text-sm hover:underline">
+              <li key={bl.slug}>
+                <Link href={`/vault/${bl.slug}`}>
                   {bl.title}
                 </Link>
               </li>
