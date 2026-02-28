@@ -43,6 +43,15 @@ export async function POST(req: NextRequest) {
     // Build tree from paths
     const tree = buildTree(files.map((f) => f.path));
 
+    // Build slug lookup for fuzzy matching wiki link targets to full paths
+    const slugLookup = new Map<string, string>();
+    for (const file of files) {
+      const slug = file.path;
+      const basename = slug.split("/").pop()!;
+      slugLookup.set(basename, slug);
+      slugLookup.set(slug, slug);
+    }
+
     // Compute backlinks from file content
     const backlinks: Record<string, Backlink[]> = {};
     for (const file of files) {
@@ -55,7 +64,8 @@ export async function POST(req: NextRequest) {
       while ((match = wikiLinkRegex.exec(content)) !== null) {
         const inner = match[1];
         const target = inner.includes("|") ? inner.split("|").pop()!.trim() : inner.trim();
-        const targetSlug = target.toLowerCase().replace(/\s+/g, "-");
+        const rawTargetSlug = target.toLowerCase().replace(/\s+/g, "-").replace(/\.md$/, "");
+        const targetSlug = slugLookup.get(rawTargetSlug) ?? rawTargetSlug;
         if (targetSlug !== slug) {
           if (!backlinks[targetSlug]) backlinks[targetSlug] = [];
           if (!backlinks[targetSlug].some((b) => b.slug === slug)) {

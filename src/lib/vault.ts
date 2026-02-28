@@ -108,13 +108,31 @@ function extractWikiLinkTargets(content: string): string[] {
     const inner = m[1];
     // [[display|target]] or [[target]]
     const target = inner.includes("|") ? inner.split("|")[1].trim() : inner.trim();
-    targets.push(target.toLowerCase().replace(/\s+/g, "-"));
+    targets.push(target.toLowerCase().replace(/\s+/g, "-").replace(/\.md$/, ""));
   }
   return targets;
 }
 
+function buildSlugLookup(mdPaths: string[]): Map<string, string> {
+  const lookup = new Map<string, string>();
+  for (const filePath of mdPaths) {
+    const slug = filePath.replace(/\.md$/, "");
+    // Map the basename (last segment) to the full slug
+    const basename = slug.split("/").pop()!;
+    lookup.set(basename, slug);
+    // Also map the full slug to itself
+    lookup.set(slug, slug);
+  }
+  return lookup;
+}
+
+function resolveTarget(target: string, slugLookup: Map<string, string>): string {
+  return slugLookup.get(target) ?? target;
+}
+
 async function computeDevBacklinks(mdPaths: string[]): Promise<Record<string, Backlink[]>> {
   const backlinks: Record<string, Backlink[]> = {};
+  const slugLookup = buildSlugLookup(mdPaths);
 
   for (const filePath of mdPaths) {
     const slug = filePath.replace(/\.md$/, "");
@@ -123,7 +141,8 @@ async function computeDevBacklinks(mdPaths: string[]): Promise<Record<string, Ba
     const title = (frontmatter.title as string) || slug.split("/").pop()!;
     const targets = extractWikiLinkTargets(content);
 
-    for (const target of targets) {
+    for (const rawTarget of targets) {
+      const target = resolveTarget(rawTarget, slugLookup);
       if (!backlinks[target]) backlinks[target] = [];
       // Avoid duplicates
       if (!backlinks[target].some((bl) => bl.slug === slug)) {
@@ -164,7 +183,7 @@ export async function getBacklinks(): Promise<Record<string, Backlink[]>> {
   return index?.backlinks ?? {};
 }
 
-function resolveWikiLinks(htmlContent: string): string {
+function resolveWikiLinks(htmlContent: string, slugLookup?: Map<string, string>): string {
   return htmlContent.replace(/\[\[([^\]]+)\]\]/g, (_match, inner: string) => {
     let display: string;
     let target: string;
@@ -176,7 +195,8 @@ function resolveWikiLinks(htmlContent: string): string {
       display = inner.trim();
       target = inner.trim();
     }
-    const slug = target.toLowerCase().replace(/\s+/g, "-");
+    const rawSlug = target.toLowerCase().replace(/\s+/g, "-").replace(/\.md$/, "");
+    const slug = slugLookup ? resolveTarget(rawSlug, slugLookup) : rawSlug;
     return `<a href="/vault/${slug}">${display}</a>`;
   });
 }
@@ -185,8 +205,11 @@ export async function getVaultPage(slugParts: string[]): Promise<{ title: string
   const filePath = slugParts.join("/");
   try {
     let rawContent: string;
+    let slugLookup: Map<string, string> | undefined;
     if (isDev) {
       rawContent = await fs.readFile(path.join(LOCAL_VAULT_DIR, `${filePath}.md`), "utf-8");
+      const mdPaths = await walkDir(LOCAL_VAULT_DIR);
+      slugLookup = buildSlugLookup(mdPaths);
     } else {
       const { blobs } = await list({ prefix: `vault/${filePath}.json` });
       if (blobs.length === 0) return null;
@@ -198,7 +221,7 @@ export async function getVaultPage(slugParts: string[]): Promise<{ title: string
     const processed = await remark().use(remarkGfm).use(html).process(content);
     return {
       title: (frontmatter.title as string) || slugParts[slugParts.length - 1],
-      contentHtml: resolveWikiLinks(processed.toString()),
+      contentHtml: resolveWikiLinks(processed.toString(), slugLookup),
     };
   } catch {
     return null;
