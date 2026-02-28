@@ -3,9 +3,11 @@ import { redirect } from "next/navigation";
 import { getVaultTree } from "@/lib/vault";
 import { VaultSidebar } from "./sidebar";
 
+const isDev = process.env.NODE_ENV === "development";
+
 export default async function VaultLayout({ children }: { children: React.ReactNode }) {
-  const session = await auth();
-  if (!session?.user) {
+  const session = isDev ? null : await auth();
+  if (!isDev && !session?.user) {
     redirect("/api/auth/signin");
   }
 
@@ -20,10 +22,12 @@ export default async function VaultLayout({ children }: { children: React.ReactN
           </h2>
           <VaultSidebar tree={tree} />
           <div className="mt-6 pt-4" style={{ borderTop: "1px solid var(--color-border)" }}>
-            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{session.user.email}</p>
-            <a href="/api/auth/signout" className="text-xs hover:opacity-70 transition-opacity" style={{ color: "var(--color-accent)" }}>
-              sign out
-            </a>
+            <p className="text-xs" style={{ color: "var(--color-text-muted)" }}>{isDev ? "dev" : session!.user!.email}</p>
+            {!isDev && (
+              <a href="/api/auth/signout" className="text-xs hover:opacity-70 transition-opacity" style={{ color: "var(--color-accent)" }}>
+                sign out
+              </a>
+            )}
           </div>
         </div>
       </aside>
