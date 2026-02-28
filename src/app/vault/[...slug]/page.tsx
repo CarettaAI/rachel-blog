@@ -8,7 +8,7 @@ export default async function VaultPage({ params }: { params: Promise<{ slug: st
 
   if (!page) notFound();
 
-  const allBacklinks = getBacklinks();
+  const allBacklinks = await getBacklinks();
   const currentSlug = slug.join("/");
   const backlinks = allBacklinks[currentSlug] || [];
 

@@ -9,7 +9,7 @@ export default async function VaultLayout({ children }: { children: React.ReactN
     redirect("/api/auth/signin");
   }
 
-  const tree = getVaultTree();
+  const tree = await getVaultTree();
 
   return (
     <div className="flex gap-8 pt-6" style={{ maxWidth: "56rem", margin: "0 auto" }}>

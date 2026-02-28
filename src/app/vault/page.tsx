@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export default async function VaultIndex() {
   const page = await getVaultPage(["index"]);
-  const allBacklinks = getBacklinks();
+  const allBacklinks = await getBacklinks();
   const backlinks = allBacklinks["index"] || [];
 
   if (!page) {
