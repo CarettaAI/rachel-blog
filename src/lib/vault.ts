@@ -1,6 +1,7 @@
 import { list } from "@vercel/blob";
 import matter from "gray-matter";
 import { remark } from "remark";
+import remarkGfm from "remark-gfm";
 import html from "remark-html";
 import fs from "fs/promises";
 import path from "path";
@@ -194,7 +195,7 @@ export async function getVaultPage(slugParts: string[]): Promise<{ title: string
       rawContent = data.content;
     }
     const { data: frontmatter, content } = matter(rawContent);
-    const processed = await remark().use(html).process(content);
+    const processed = await remark().use(remarkGfm).use(html).process(content);
     return {
       title: (frontmatter.title as string) || slugParts[slugParts.length - 1],
       contentHtml: resolveWikiLinks(processed.toString()),
