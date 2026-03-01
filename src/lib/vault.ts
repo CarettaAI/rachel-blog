@@ -25,9 +25,16 @@ export interface Backlink {
   title: string;
 }
 
+export interface RecentFile {
+  path: string;
+  title: string;
+  updatedAt: string;
+}
+
 interface VaultIndex {
   tree: VaultFile[];
   backlinks: Record<string, Backlink[]>;
+  recentFiles?: RecentFile[];
 }
 
 // --- Dev mode: walk local filesystem ---
@@ -115,14 +122,44 @@ function extractWikiLinkTargets(content: string): string[] {
 
 function buildSlugLookup(mdPaths: string[]): Map<string, string> {
   const lookup = new Map<string, string>();
+  const basenameCount = new Map<string, number>();
+  const twoSegCount = new Map<string, number>();
+
+  // First pass: map full slugs and count basename/2-segment occurrences
   for (const filePath of mdPaths) {
     const slug = filePath.replace(/\.md$/, "");
-    // Map the basename (last segment) to the full slug
-    const basename = slug.split("/").pop()!;
-    lookup.set(basename, slug);
-    // Also map the full slug to itself
+    const segments = slug.split("/");
+    const basename = segments[segments.length - 1];
+
     lookup.set(slug, slug);
+    basenameCount.set(basename, (basenameCount.get(basename) ?? 0) + 1);
+
+    if (segments.length >= 2) {
+      const twoSeg = segments.slice(-2).join("/");
+      if (twoSeg !== slug) {
+        twoSegCount.set(twoSeg, (twoSegCount.get(twoSeg) ?? 0) + 1);
+      }
+    }
   }
+
+  // Second pass: add short keys only when unambiguous
+  for (const filePath of mdPaths) {
+    const slug = filePath.replace(/\.md$/, "");
+    const segments = slug.split("/");
+    const basename = segments[segments.length - 1];
+
+    if (basenameCount.get(basename) === 1) {
+      lookup.set(basename, slug);
+    }
+
+    if (segments.length >= 2) {
+      const twoSeg = segments.slice(-2).join("/");
+      if (twoSeg !== slug && twoSegCount.get(twoSeg) === 1) {
+        lookup.set(twoSeg, slug);
+      }
+    }
+  }
+
   return lookup;
 }
 
@@ -162,7 +199,19 @@ async function getVaultIndex(): Promise<VaultIndex | null> {
       const mdPaths = await walkDir(LOCAL_VAULT_DIR);
       const tree = buildTree(mdPaths);
       const backlinks = await computeDevBacklinks(mdPaths);
-      return { tree, backlinks };
+      // Compute recent files from filesystem mtimes
+      const recentFiles: RecentFile[] = [];
+      for (const filePath of mdPaths) {
+        const fullPath = path.join(LOCAL_VAULT_DIR, filePath);
+        const raw = await fs.readFile(fullPath, "utf-8");
+        const stat = await fs.stat(fullPath);
+        const { data } = matter(raw);
+        const slug = filePath.replace(/\.md$/, "");
+        const title = (data.title as string) || slug.split("/").pop()!;
+        recentFiles.push({ path: slug, title, updatedAt: stat.mtime.toISOString() });
+      }
+      recentFiles.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+      return { tree, backlinks, recentFiles: recentFiles.slice(0, 20) };
     }
     const { blobs } = await list({ prefix: VAULT_INDEX_KEY });
     if (blobs.length === 0) return null;
@@ -181,6 +230,11 @@ export async function getVaultTree(): Promise<VaultFile[]> {
 export async function getBacklinks(): Promise<Record<string, Backlink[]>> {
   const index = await getVaultIndex();
   return index?.backlinks ?? {};
+}
+
+export async function getRecentFiles(): Promise<RecentFile[]> {
+  const index = await getVaultIndex();
+  return index?.recentFiles ?? [];
 }
 
 function resolveWikiLinks(htmlContent: string, slugLookup?: Map<string, string>): string {

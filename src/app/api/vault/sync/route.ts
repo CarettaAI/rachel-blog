@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
 import matter from "gray-matter";
-import type { VaultFile, Backlink } from "@/lib/vault";
+import type { VaultFile, Backlink, RecentFile } from "@/lib/vault";
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get("authorization");
@@ -45,11 +45,34 @@ export async function POST(req: NextRequest) {
 
     // Build slug lookup for fuzzy matching wiki link targets to full paths
     const slugLookup = new Map<string, string>();
+    const basenameCount = new Map<string, number>();
+    const twoSegCount = new Map<string, number>();
     for (const file of files) {
       const slug = file.path;
-      const basename = slug.split("/").pop()!;
-      slugLookup.set(basename, slug);
+      const segments = slug.split("/");
+      const basename = segments[segments.length - 1];
       slugLookup.set(slug, slug);
+      basenameCount.set(basename, (basenameCount.get(basename) ?? 0) + 1);
+      if (segments.length >= 2) {
+        const twoSeg = segments.slice(-2).join("/");
+        if (twoSeg !== slug) {
+          twoSegCount.set(twoSeg, (twoSegCount.get(twoSeg) ?? 0) + 1);
+        }
+      }
+    }
+    for (const file of files) {
+      const slug = file.path;
+      const segments = slug.split("/");
+      const basename = segments[segments.length - 1];
+      if (basenameCount.get(basename) === 1) {
+        slugLookup.set(basename, slug);
+      }
+      if (segments.length >= 2) {
+        const twoSeg = segments.slice(-2).join("/");
+        if (twoSeg !== slug && twoSegCount.get(twoSeg) === 1) {
+          slugLookup.set(twoSeg, slug);
+        }
+      }
     }
 
     // Compute backlinks from file content
@@ -86,8 +109,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Build recent files list (top 20 by updatedAt)
+    const recentFiles: RecentFile[] = files
+      .map((file) => {
+        const { data } = matter(file.content, { engines: {} });
+        const title = (data.title as string) || file.path.split("/").pop() || file.path;
+        return { path: file.path, title, updatedAt };
+      })
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .slice(0, 20);
+
     // Store index
-    await put("vault-index.json", JSON.stringify({ tree, backlinks }), {
+    await put("vault-index.json", JSON.stringify({ tree, backlinks, recentFiles }), {
       access: "public",
       allowOverwrite: true,
       addRandomSuffix: false,

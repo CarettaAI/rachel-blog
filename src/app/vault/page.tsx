@@ -1,37 +1,64 @@
-import { getVaultPage, getBacklinks } from "@/lib/vault";
+import { getVaultTree, getRecentFiles } from "@/lib/vault";
+import type { VaultFile } from "@/lib/vault";
 import Link from "next/link";
+import { RelativeTime } from "./relative-time";
+
+function countFiles(node: VaultFile): number {
+  if (!node.isDir) return 1;
+  return node.children?.reduce((sum, child) => sum + countFiles(child), 0) ?? 0;
+}
 
 export default async function VaultIndex() {
-  const page = await getVaultPage(["index"]);
-  const allBacklinks = await getBacklinks();
-  const backlinks = allBacklinks["index"] || [];
+  const [tree, recentFiles] = await Promise.all([getVaultTree(), getRecentFiles()]);
 
-  if (!page) {
-    return (
-      <div className="prose">
-        <h1>vault</h1>
-        <p>welcome to the vault. select a page from the sidebar.</p>
-      </div>
-    );
-  }
+  const sections = tree.filter((node) => node.isDir);
 
   return (
-    <div className="prose">
-      <h1>{page.title}</h1>
-      <div dangerouslySetInnerHTML={{ __html: page.contentHtml }} />
-      {backlinks.length > 0 && (
-        <div className="mt-12 pt-6 border-t border-neutral-200 dark:border-neutral-800">
-          <h3 className="text-sm font-medium text-neutral-500 uppercase tracking-wide mb-3">Linked from</h3>
-          <ul className="list-none pl-0 space-y-1">
-            {backlinks.map((bl) => (
-              <li key={bl.slug} className="pl-0">
-                <Link href={`/vault/${bl.slug}`} className="text-sm hover:underline">
-                  {bl.title}
-                </Link>
-              </li>
+    <div>
+      <h1 className="vault-home-title">vault</h1>
+      <p className="vault-home-subtitle">personal knowledge base</p>
+
+      {/* Section overview */}
+      <div className="vault-sections-grid">
+        {sections.map((section) => {
+          const count = countFiles(section);
+          return (
+            <Link
+              key={section.slug}
+              href={`/vault/${section.slug}`}
+              className="vault-section-card"
+            >
+              <span className="vault-section-name">{section.name}</span>
+              <span className="vault-section-count">
+                {count} {count === 1 ? "note" : "notes"}
+              </span>
+            </Link>
+          );
+        })}
+      </div>
+
+      {/* Recent entries */}
+      {recentFiles.length > 0 && (
+        <section className="vault-recent">
+          <h2 className="vault-recent-heading">recently updated</h2>
+          <div className="vault-recent-list">
+            {recentFiles.map((file) => (
+              <Link
+                key={file.path}
+                href={`/vault/${file.path}`}
+                className="vault-recent-card"
+              >
+                <span className="vault-recent-title">{file.title}</span>
+                <span className="vault-recent-meta">
+                  <span className="vault-recent-path">
+                    {file.path.split("/").slice(0, -1).join(" / ")}
+                  </span>
+                  <RelativeTime date={file.updatedAt} />
+                </span>
+              </Link>
             ))}
-          </ul>
-        </div>
+          </div>
+        </section>
       )}
     </div>
   );
