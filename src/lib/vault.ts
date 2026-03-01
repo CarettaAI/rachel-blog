@@ -203,8 +203,8 @@ async function getVaultIndex(): Promise<VaultIndex | null> {
       const recentFiles: RecentFile[] = [];
       for (const filePath of mdPaths) {
         const fullPath = path.join(LOCAL_VAULT_DIR, filePath);
-        const stat = await fs.stat(fullPath);
         const raw = await fs.readFile(fullPath, "utf-8");
+        const stat = await fs.stat(fullPath);
         const { data } = matter(raw);
         const slug = filePath.replace(/\.md$/, "");
         const title = (data.title as string) || slug.split("/").pop()!;
