@@ -1,16 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
 import { revalidatePath } from "next/cache";
+import matter from "gray-matter";
 import type { VaultFile, Backlink, RecentFile } from "@/lib/vault";
-
-function extractFrontmatterTitle(raw: string): string | null {
-  const match = raw.match(/^title:\s*['"]?(.+?)['"]?\s*$/m);
-  return match ? match[1] : null;
-}
-
-function stripFrontmatter(raw: string): string {
-  return raw.replace(/^---\r?\n[\s\S]*?\r?\n---\r?\n?/, "");
-}
 
 export async function POST(req: NextRequest) {
   const auth = req.headers.get("authorization");
@@ -86,9 +78,9 @@ export async function POST(req: NextRequest) {
     // Compute backlinks from file content
     const backlinks: Record<string, Backlink[]> = {};
     for (const file of files) {
-      const content = stripFrontmatter(file.content);
+      const { data, content } = matter(file.content, { engines: {} });
       const slug = file.path;
-      const title = extractFrontmatterTitle(file.content) || slug.split("/").pop() || slug;
+      const title = (data.title as string) || slug.split("/").pop() || slug;
 
       const wikiLinkRegex = /\[\[([^\]]+)\]\]/g;
       let match;
@@ -120,7 +112,8 @@ export async function POST(req: NextRequest) {
     // Build recent files list (top 20 by updatedAt)
     const recentFiles: RecentFile[] = files
       .map((file) => {
-        const title = extractFrontmatterTitle(file.content) || file.path.split("/").pop() || file.path;
+        const { data } = matter(file.content, { engines: {} });
+        const title = (data.title as string) || file.path.split("/").pop() || file.path;
         return { path: file.path, title, updatedAt };
       })
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
